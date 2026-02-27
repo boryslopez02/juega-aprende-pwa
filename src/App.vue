@@ -1,161 +1,441 @@
 <template>
-  <div class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="logo">
-        <span class="logo-icon"></span>
-        <h1>Aprende y Juega</h1>
-      </div>
-      <div class="score-display" v-if="gameState !== 'menu'">
-        <span class="score-icon">⭐</span>
-        <span class="score-value">{{ score }}</span>
-      </div>
-    </header>
+  <div class="min-h-screen flex flex-col app-bg">
+    <!-- Loader -->
+    <AppLoader v-if="isLoading" @loaded="isLoading = false" />
 
-    <!-- Main Content -->
-    <main class="main-content">
-      <!-- Menu Screen -->
-      <div
-        v-if="gameState === 'menu'"
-        class="menu-screen animate__animated animate__fadeIn"
-      >
-        <div class="welcome-card">
-          <div class="mascot">🤖</div>
-          <h2>¡Aprende Jugando!</h2>
-          <p>Elige una categoría y demuestra cuánto sabes de computación</p>
-        </div>
-
-        <div class="categories-grid">
-          <button
-            v-for="category in categories"
-            :key="category.id"
-            class="category-card"
-            :style="{ '--category-color': category.color }"
-            @click="startGame(category.id)"
-          >
-            <span class="category-icon">{{ category.icon }}</span>
-            <span class="category-name">{{ category.name }}</span>
-            <span class="category-count"
-              >{{ category.questions.length }} preguntas</span
-            >
-          </button>
-        </div>
-      </div>
-
-      <!-- Quiz Screen -->
-      <div v-else-if="gameState === 'playing'" class="quiz-screen">
-        <div class="progress-bar">
+    <template v-else>
+      <!-- Header -->
+      <header class="sticky top-0 z-40">
+        <div class="header-bar">
           <div
-            class="progress-fill"
-            :style="{
-              width: `${(currentQuestionIndex / totalQuestions) * 100}%`,
-            }"
-          ></div>
-        </div>
-
-        <div class="question-card animate__animated animate__fadeInUp">
-          <div class="question-number">
-            Pregunta {{ currentQuestionIndex + 1 }} de {{ totalQuestions }}
-          </div>
-
-          <h3 class="question-text">{{ currentQuestion.question }}</h3>
-
-          <div class="options-grid">
-            <button
-              v-for="(option, index) in currentQuestion.options"
-              :key="index"
-              class="option-button"
-              :class="{
-                correct: showResult && index === currentQuestion.correct,
-                incorrect:
-                  showResult &&
-                  selectedOption === index &&
-                  index !== currentQuestion.correct,
-                disabled: showResult,
-              }"
-              @click="selectOption(index)"
-              :disabled="showResult"
-            >
-              <span class="option-letter">{{
-                String.fromCharCode(65 + index)
-              }}</span>
-              <span class="option-text">{{ option }}</span>
-            </button>
-          </div>
-
-          <div
-            v-if="showResult"
-            class="explanation animate__animated animate__fadeIn"
+            class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between"
           >
-            <div class="explanation-icon">
-              {{ currentQuestion.correct === selectedOption ? "✅" : "💡" }}
+            <div class="flex items-center gap-3">
+              <div class="logo-badge">
+                <span class="text-2xl">🎮</span>
+              </div>
+              <div>
+                <h1 class="text-2xl font-black text-white drop-shadow">
+                  Juega y Aprende
+                </h1>
+                <p class="text-xs text-white/90 font-bold">¡Aprende Jugando!</p>
+              </div>
             </div>
-            <p>{{ currentQuestion.explanation }}</p>
-          </div>
 
-          <button v-if="showResult" class="next-button" @click="nextQuestion">
-            {{ isLastQuestion ? "Ver Resultados" : "Siguiente Pregunta" }} →
-          </button>
-        </div>
-      </div>
-
-      <!-- Results Screen -->
-      <div
-        v-else-if="gameState === 'results'"
-        class="results-screen animate__animated animate__zoomIn"
-      >
-        <div class="trophy">🏆</div>
-        <h2>¡Juego Terminado!</h2>
-
-        <div class="final-score">
-          <div class="score-circle">
-            <span class="score-number">{{ score }}</span>
-            <span class="score-max">/ {{ totalQuestions * 10 }}</span>
+            <transition name="pop">
+              <div v-if="gameState !== 'menu'" :key="score" class="score-pill">
+                <span class="text-2xl">⭐</span>
+                <span class="font-black text-white text-xl">{{ score }}</span>
+              </div>
+            </transition>
           </div>
         </div>
+      </header>
 
-        <div class="performance-message">
-          <p v-if="percentage >= 80" class="excellent">¡Excelente! 🌟</p>
-          <p v-else-if="percentage >= 60" class="good">¡Muy bien! 👍</p>
-          <p v-else class="keep-trying">¡Sigue practicando! 💪</p>
-        </div>
+      <!-- Main -->
+      <main class="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
+        <!-- MENU -->
+        <transition name="page" mode="out-in">
+          <div v-if="gameState === 'menu'" key="menu" class="space-y-6">
+            <!-- Welcome -->
+            <div class="card-sticker text-center p-7">
+              <div class="text-7xl mb-2 animate-wiggle">🤖✨</div>
+              <h2 class="text-3xl font-black text-gray-800 mb-2">
+                ¡Elige tu Categoría!
+              </h2>
+              <p class="text-gray-600 font-semibold">
+                Toca una categoría y demuestra cuánto sabes
+              </p>
+            </div>
 
-        <div class="stats">
-          <div class="stat-item">
-            <span class="stat-label">Correctas</span>
-            <span class="stat-value correct">{{ correctAnswers }}</span>
+            <!-- Wheel (Preguntados vibe) -->
+            <div class="card-sticker p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-black text-gray-800 flex items-center gap-2">
+                  <span class="text-xl">🎡</span>
+                  <span>Rueda de Categorías</span>
+                </div>
+                <div class="text-xs font-bold text-gray-500">Toca un ícono</div>
+              </div>
+
+              <CategoryWheel :categories="categories" @select="startGame" />
+            </div>
+
+            <!-- Grid (extra, súper usable para niños) -->
+            <div class="grid grid-cols-2 gap-4">
+              <button
+                v-for="category in categories"
+                :key="category.id"
+                @click="startGame(category.id)"
+                class="category-card"
+                :style="{
+                  background: `linear-gradient(135deg, ${category.color} 0%, ${category.color}cc 100%)`,
+                }"
+                type="button"
+              >
+                <div class="category-shine"></div>
+                <div class="relative z-10">
+                  <div class="text-6xl mb-2 drop-shadow category-icon">
+                    {{ category.icon }}
+                  </div>
+                  <div class="text-white font-black text-lg">
+                    {{ category.name }}
+                  </div>
+                  <div
+                    class="mt-2 inline-flex items-center gap-2 bg-white/90 rounded-full px-3 py-1"
+                  >
+                    <span class="text-sm font-black text-gray-800">{{
+                      category.questions.length
+                    }}</span>
+                    <span class="text-xs text-gray-600 font-bold"
+                      >preguntas</span
+                    >
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="mini-sticker border-green-400">
+                <div class="text-3xl">🎯</div>
+                <div class="text-xs font-black text-gray-700">5 Preguntas</div>
+              </div>
+              <div class="mini-sticker border-yellow-400">
+                <div class="text-3xl">⭐</div>
+                <div class="text-xs font-black text-gray-700">+10 Puntos</div>
+              </div>
+              <div class="mini-sticker border-pink-400">
+                <div class="text-3xl">🏆</div>
+                <div class="text-xs font-black text-gray-700">¡Gana!</div>
+              </div>
+            </div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Incorrectas</span>
-            <span class="stat-value incorrect">{{ incorrectAnswers }}</span>
+        </transition>
+
+        <!-- QUIZ -->
+        <transition name="page" mode="out-in">
+          <div v-if="gameState === 'playing'" key="quiz" class="space-y-6">
+            <!-- Top Bar -->
+            <div
+              class="card-sticker p-4 flex items-center justify-between border-cyan-400"
+            >
+              <button @click="confirmCancel" class="btn-danger" type="button">
+                <span class="text-xl">❌</span>
+                <span class="hidden sm:inline">Cancelar</span>
+              </button>
+
+              <div class="pill-info">
+                <span class="text-2xl">📊</span>
+                <span class="font-black text-white">
+                  {{ currentQuestionIndex + 1 }}/{{ totalQuestions }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="card-sticker p-4 border-purple-400">
+              <div
+                class="flex justify-between text-sm font-black text-gray-700 mb-2"
+              >
+                <span class="flex items-center gap-1">📈 Progreso</span>
+                <span class="text-purple-600">
+                  {{
+                    Math.round(
+                      ((currentQuestionIndex + (showResult ? 1 : 0)) /
+                        totalQuestions) *
+                        100,
+                    )
+                  }}%
+                </span>
+              </div>
+
+              <div
+                class="h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-gray-300"
+              >
+                <div
+                  class="h-full progress-bar"
+                  :style="{
+                    width: `${((currentQuestionIndex + (showResult ? 1 : 0)) / totalQuestions) * 100}%`,
+                  }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Question -->
+            <div class="card-sticker p-6 border-yellow-400">
+              <div class="badge-question">
+                <span class="badge-num">{{ currentQuestionIndex + 1 }}</span>
+                <span>Pregunta</span>
+              </div>
+
+              <h3
+                class="text-2xl font-black text-gray-800 mb-6 leading-relaxed"
+              >
+                {{ currentQuestion?.question }}
+              </h3>
+
+              <!-- Options -->
+              <div class="space-y-3">
+                <button
+                  v-for="(option, index) in currentQuestion?.options"
+                  :key="index"
+                  @click="selectOption(index)"
+                  :disabled="showResult"
+                  class="option-btn"
+                  :class="{
+                    'option-correct':
+                      showResult && index === currentQuestion.correct,
+                    'option-wrong':
+                      showResult &&
+                      selectedOption === index &&
+                      index !== currentQuestion.correct,
+                  }"
+                  type="button"
+                >
+                  <div class="flex items-center gap-4">
+                    <span class="opt-letter">
+                      {{ String.fromCharCode(65 + index) }}
+                    </span>
+                    <span class="font-black text-gray-800 text-lg flex-1">{{
+                      option
+                    }}</span>
+
+                    <span
+                      v-if="showResult && index === currentQuestion.correct"
+                      class="text-3xl animate-bounce"
+                      >✅</span
+                    >
+                    <span
+                      v-if="
+                        showResult &&
+                        selectedOption === index &&
+                        index !== currentQuestion.correct
+                      "
+                      class="text-3xl"
+                      >❌</span
+                    >
+                  </div>
+                </button>
+              </div>
+
+              <!-- Explanation -->
+              <transition name="slide">
+                <div
+                  v-if="showResult"
+                  class="mt-6 p-5 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-2xl border-l-8 border-cyan-400 shadow-lg"
+                >
+                  <div class="flex gap-3">
+                    <span class="text-3xl flex-shrink-0">
+                      {{
+                        currentQuestion.correct === selectedOption ? "🎉" : "💡"
+                      }}
+                    </span>
+                    <div>
+                      <h4 class="font-black text-gray-800 mb-1">
+                        {{
+                          currentQuestion.correct === selectedOption
+                            ? "¡Correcto!"
+                            : "Respuesta:"
+                        }}
+                      </h4>
+                      <p class="text-gray-700 leading-relaxed font-semibold">
+                        {{ currentQuestion?.explanation }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </transition>
+
+              <!-- Next -->
+              <transition name="slide">
+                <button
+                  v-if="showResult"
+                  @click="nextQuestion"
+                  class="btn-next"
+                  type="button"
+                >
+                  <span>
+                    {{
+                      isLastQuestion
+                        ? "🏆 Ver Resultados"
+                        : "➡️ Siguiente Pregunta"
+                    }}
+                  </span>
+                </button>
+              </transition>
+            </div>
+          </div>
+        </transition>
+
+        <!-- RESULTS -->
+        <transition name="page" mode="out-in">
+          <div
+            v-if="gameState === 'results'"
+            key="results"
+            class="text-center space-y-6"
+          >
+            <div class="relative">
+              <div class="text-9xl mb-4 animate-bounce-slow drop-shadow-2xl">
+                🏆
+              </div>
+              <div
+                v-if="percentage >= 60"
+                class="absolute inset-0 flex items-center justify-center pointer-events-none"
+              >
+                <div
+                  class="w-44 h-44 bg-yellow-300/40 rounded-full animate-ping"
+                ></div>
+              </div>
+            </div>
+
+            <h2 class="text-4xl font-black text-white drop-shadow-lg">
+              ¡Juego Terminado!
+            </h2>
+
+            <div class="card-sticker p-8 border-yellow-400">
+              <div class="relative w-48 h-48 mx-auto mb-6">
+                <svg class="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r="85"
+                    class="fill-none stroke-gray-200"
+                    stroke-width="16"
+                  />
+                  <circle
+                    cx="96"
+                    cy="96"
+                    r="85"
+                    class="fill-none transition-all duration-1000 ease-out"
+                    stroke-width="16"
+                    stroke-dasharray="534"
+                    :stroke-dashoffset="534 - (534 * percentage) / 100"
+                    stroke-linecap="round"
+                    :class="
+                      percentage >= 80
+                        ? 'stroke-green-500'
+                        : percentage >= 60
+                          ? 'stroke-yellow-500'
+                          : 'stroke-orange-500'
+                    "
+                  />
+                </svg>
+
+                <div
+                  class="absolute inset-0 flex flex-col items-center justify-center"
+                >
+                  <span class="text-5xl font-black text-gray-800">{{
+                    score
+                  }}</span>
+                  <span class="text-gray-500 font-black">puntos</span>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <p
+                  v-if="percentage >= 80"
+                  class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-500 animate-pulse"
+                >
+                  🌟 ¡Excelente! 🌟
+                </p>
+                <p
+                  v-else-if="percentage >= 60"
+                  class="text-3xl font-black text-green-500"
+                >
+                  👍 ¡Muy bien!
+                </p>
+                <p v-else class="text-3xl font-black text-orange-500">
+                  💪 ¡Sigue practicando!
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="mini-sticker border-green-400 p-5">
+                <div class="text-4xl font-black text-green-500 mb-1">
+                  {{ correctAnswers }}
+                </div>
+                <div class="text-sm font-black text-gray-700">✅ Correctas</div>
+              </div>
+              <div class="mini-sticker border-red-400 p-5">
+                <div class="text-4xl font-black text-red-500 mb-1">
+                  {{ incorrectAnswers }}
+                </div>
+                <div class="text-sm font-black text-gray-700">
+                  ❌ Incorrectas
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <button @click="playAgain" class="btn-primary" type="button">
+                <span class="text-2xl">🔄</span>
+                <span>Jugar de Nuevo</span>
+              </button>
+              <button @click="goToMenu" class="btn-secondary" type="button">
+                <span class="text-2xl">📋</span>
+                <span>Otra Categoría</span>
+              </button>
+            </div>
+          </div>
+        </transition>
+      </main>
+
+      <footer class="py-4 text-center text-white/80 text-sm font-semibold">
+        <p>Hecho con ❤️ para aprender • v1.0</p>
+      </footer>
+
+      <!-- Cancel Modal -->
+      <transition name="fade">
+        <div
+          v-if="showCancelModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        >
+          <div
+            class="card-sticker p-8 max-w-sm w-full border-red-400 animate-bounce-in"
+          >
+            <div class="text-center">
+              <div class="text-6xl mb-4">🛑</div>
+              <h3 class="text-2xl font-black text-gray-800 mb-3">
+                ¿Cancelar lección?
+              </h3>
+              <p class="text-gray-600 mb-6 font-semibold">
+                Perderás tu progreso actual
+              </p>
+              <div class="flex gap-3">
+                <button
+                  @click="cancelGame"
+                  class="btn-danger flex-1 justify-center"
+                  type="button"
+                >
+                  Sí, cancelar
+                </button>
+                <button
+                  @click="showCancelModal = false"
+                  class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-black hover:bg-gray-300 transition-all"
+                  type="button"
+                >
+                  Continuar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div class="action-buttons">
-          <button class="btn-primary" @click="playAgain">
-            🔄 Jugar de Nuevo
-          </button>
-          <button class="btn-secondary" @click="goToMenu">
-            📋 Cambiar Categoría
-          </button>
-        </div>
-      </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="app-footer">
-      <p>Hecho con ❤️ para aprender</p>
-    </footer>
+      </transition>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import confetti from "canvas-confetti";
-import "animate.css";
+import AppLoader from "./components/AppLoader.vue";
+import CategoryWheel from "./components/CategoryWheel.vue";
 import { categories, getRandomQuestions } from "./data/questions";
 
-const gameState = ref("menu"); // menu, playing, results
+const isLoading = ref(true);
+const gameState = ref("menu");
 const currentCategory = ref(null);
 const questions = ref([]);
 const currentQuestionIndex = ref(0);
@@ -164,33 +444,36 @@ const correctAnswers = ref(0);
 const incorrectAnswers = ref(0);
 const selectedOption = ref(null);
 const showResult = ref(false);
+const showCancelModal = ref(false);
 
-const currentQuestion = computed(() => {
-  return questions.value[currentQuestionIndex.value] || {};
-});
-
+const currentQuestion = computed(
+  () => questions.value[currentQuestionIndex.value] || {},
+);
 const totalQuestions = computed(() => questions.value.length);
-
-const isLastQuestion = computed(() => {
-  return currentQuestionIndex.value === questions.value.length - 1;
-});
-
-const percentage = computed(() => {
-  return totalQuestions.value > 0
+const isLastQuestion = computed(
+  () => currentQuestionIndex.value === questions.value.length - 1,
+);
+const percentage = computed(() =>
+  totalQuestions.value > 0
     ? (score.value / (totalQuestions.value * 10)) * 100
-    : 0;
-});
+    : 0,
+);
 
 function startGame(categoryId) {
   currentCategory.value = categoryId;
   questions.value = getRandomQuestions(categoryId, 5);
+  resetGame();
+  gameState.value = "playing";
+}
+
+function resetGame() {
   currentQuestionIndex.value = 0;
   score.value = 0;
   correctAnswers.value = 0;
   incorrectAnswers.value = 0;
   selectedOption.value = null;
   showResult.value = false;
-  gameState.value = "playing";
+  showCancelModal.value = false;
 }
 
 function selectOption(index) {
@@ -211,14 +494,21 @@ function selectOption(index) {
 function nextQuestion() {
   if (isLastQuestion.value) {
     gameState.value = "results";
-    if (percentage.value >= 60) {
-      triggerConfetti(true);
-    }
+    if (percentage.value >= 60) triggerConfetti(true);
   } else {
     currentQuestionIndex.value++;
     selectedOption.value = null;
     showResult.value = false;
   }
+}
+
+function confirmCancel() {
+  showCancelModal.value = true;
+}
+
+function cancelGame() {
+  showCancelModal.value = false;
+  goToMenu();
 }
 
 function playAgain() {
@@ -229,486 +519,378 @@ function goToMenu() {
   gameState.value = "menu";
   currentCategory.value = null;
   questions.value = [];
+  showCancelModal.value = false;
 }
 
 function triggerConfetti(big = false) {
-  const duration = big ? 3000 : 1000;
-  const particleCount = big ? 150 : 50;
-
   confetti({
-    particleCount,
-    spread: big ? 100 : 70,
+    particleCount: big ? 160 : 60,
+    spread: big ? 110 : 75,
     origin: { y: 0.6 },
-    colors: ["#4CAF50", "#FFD93D", "#FF6B6B", "#4ECDC4"],
+    colors: ["#FFD93D", "#4CAF50", "#FF6B6B", "#4ECDC4", "#95E1D3", "#A78BFA"],
     disableForReducedMotion: true,
   });
 }
+
+onMounted(() => {
+  document.documentElement.classList.add("scroll-smooth");
+});
 </script>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Fondo tipo confetti */
+.app-bg {
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 45%, #fb7185 100%);
+  position: relative;
+  overflow-x: hidden;
 }
-
-:root {
-  --primary: #4caf50;
-  --secondary: #ffd93d;
-  --accent: #ff6b6b;
-  --text: #2c3e50;
-  --background: #f0f4f8;
-  --card: #ffffff;
-}
-
-body {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  color: var(--text);
-}
-
-.app-container {
-  max-width: 600px;
-  margin: 0 auto;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--background);
+.app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image:
+    radial-gradient(
+      circle at 10% 20%,
+      rgba(255, 255, 255, 0.35) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 30% 80%,
+      rgba(255, 255, 255, 0.25) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 70% 25%,
+      rgba(255, 255, 255, 0.3) 0 2px,
+      transparent 3px
+    ),
+    radial-gradient(
+      circle at 85% 75%,
+      rgba(255, 255, 255, 0.22) 0 2px,
+      transparent 3px
+    );
+  background-size: 180px 180px;
 }
 
 /* Header */
-.app-header {
-  background: linear-gradient(135deg, var(--primary) 0%, #45a049 100%);
-  color: white;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.header-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(250, 204, 21, 0.95),
+    rgba(236, 72, 153, 0.95),
+    rgba(168, 85, 247, 0.95)
+  );
+  border-bottom: 5px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(10px);
 }
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logo-icon {
-  font-size: 2rem;
-}
-
-.logo h1 {
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-.score-display {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: bold;
-}
-
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto;
-}
-
-/* Menu Screen */
-.welcome-card {
-  background: var(--card);
-  border-radius: 20px;
-  padding: 2rem;
-  text-align: center;
-  margin-bottom: 2rem;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.mascot {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.welcome-card h2 {
-  color: var(--primary);
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
-}
-
-.welcome-card p {
-  color: #666;
-  font-size: 1rem;
-}
-
-/* Categories Grid */
-.categories-grid {
+.logo-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  place-items: center;
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  background: linear-gradient(135deg, #fbbf24, #ec4899, #a855f7);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s ease;
 }
-
-.category-card {
-  background: var(--card);
-  border: 3px solid var(--category-color);
-  border-radius: 15px;
-  padding: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
+.logo-badge:hover {
+  transform: rotate(10deg) scale(1.04);
+}
+.score-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fbbf24, #fb923c);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.18);
 }
 
-.category-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+/* Cards estilo sticker */
+.card-sticker {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 28px;
+  border: 5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 22px 45px rgba(0, 0, 0, 0.18),
+    inset 0 10px 18px rgba(255, 255, 255, 0.25);
+}
+.mini-sticker {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+  border: 4px solid;
+  text-align: center;
+  padding: 14px 10px;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.15);
 }
 
-.category-icon {
-  font-size: 2.5rem;
-}
-
-.category-name {
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: var(--text);
-}
-
-.category-count {
-  font-size: 0.85rem;
-  color: #888;
-}
-
-/* Quiz Screen */
-.progress-bar {
-  height: 8px;
-  background: #ddd;
-  border-radius: 10px;
-  margin-bottom: 1.5rem;
+/* Category grid */
+.category-card {
+  position: relative;
+  border-radius: 28px;
+  padding: 22px;
+  border: 6px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
+  transform: translateZ(0);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
   overflow: hidden;
 }
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--secondary));
-  transition: width 0.3s ease;
+.category-card:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 28px 45px rgba(0, 0, 0, 0.22);
+}
+.category-shine {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 25% 20%,
+    rgba(255, 255, 255, 0.35),
+    transparent 55%
+  );
+  opacity: 0.9;
+}
+.category-icon {
+  transform: rotate(-2deg);
 }
 
-.question-card {
-  background: var(--card);
-  border-radius: 20px;
-  padding: 2rem;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.question-number {
-  color: var(--primary);
-  font-weight: bold;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.question-text {
-  font-size: 1.3rem;
-  margin-bottom: 2rem;
-  color: var(--text);
-  line-height: 1.4;
-}
-
-.options-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.option-button {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
-  border-radius: 12px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
+/* Quiz pieces */
+.badge-question {
+  display: inline-flex;
   align-items: center;
-  gap: 1rem;
-  font-size: 1rem;
-  text-align: left;
-}
-
-.option-button:hover:not(.disabled) {
-  background: #e9ecef;
-  transform: translateX(5px);
-}
-
-.option-button.correct {
-  background: #d4edda;
-  border-color: #28a745;
-  color: #155724;
-}
-
-.option-button.incorrect {
-  background: #f8d7da;
-  border-color: #dc3545;
-  color: #721c24;
-}
-
-.option-button.disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.option-letter {
-  background: var(--primary);
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
   color: white;
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  display: flex;
+  font-weight: 900;
+  margin-bottom: 18px;
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.15);
+}
+.badge-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: white;
+  color: #7c3aed;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+.progress-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4ade80, #facc15, #fb7185);
+  transition: width 0.7s ease;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
+}
+.option-btn {
+  width: 100%;
+  text-align: left;
+  padding: 18px;
+  border-radius: 22px;
+  border: 4px solid #e5e7eb;
+  background: linear-gradient(90deg, #f9fafb, #f3f4f6);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+.option-btn:hover {
+  transform: scale(1.01);
+  border-color: #22d3ee;
+  box-shadow: 0 18px 28px rgba(0, 0, 0, 0.14);
+}
+.option-btn:active {
+  transform: scale(0.99);
+}
+.opt-letter {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  color: white;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.16);
+  font-size: 18px;
+}
+.option-correct {
+  background: linear-gradient(90deg, #dcfce7, #a7f3d0) !important;
+  border-color: #22c55e !important;
+}
+.option-wrong {
+  background: linear-gradient(90deg, #ffe4e6, #fecdd3) !important;
+  border-color: #ef4444 !important;
+}
+
+/* Buttons */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-weight: 900;
+  color: white;
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  background: linear-gradient(90deg, #fb7185, #ef4444);
+  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s ease;
+}
+.btn-danger:hover {
+  transform: scale(1.03);
+}
+.btn-next {
+  margin-top: 18px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 22px;
+  font-weight: 900;
+  font-size: 20px;
+  color: white;
+  background: linear-gradient(90deg, #4ade80, #facc15, #fb7185);
+  border: 5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 20px 34px rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s ease;
+}
+.btn-next:hover {
+  transform: scale(1.01);
+}
+.btn-primary {
+  width: 100%;
+  padding: 16px;
+  border-radius: 22px;
+  font-weight: 900;
+  font-size: 20px;
+  color: white;
+  background: linear-gradient(90deg, #22c55e, #10b981);
+  border: 5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 20px 34px rgba(0, 0, 0, 0.18);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  flex-shrink: 0;
+  gap: 10px;
+  transition: transform 0.12s ease;
 }
-
-.option-button.correct .option-letter {
-  background: #28a745;
+.btn-primary:hover {
+  transform: scale(1.01);
 }
-
-.option-button.incorrect .option-letter {
-  background: #dc3545;
-}
-
-.explanation {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #e7f3ff;
-  border-radius: 12px;
-  border-left: 4px solid #4ecdc4;
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.explanation-icon {
-  font-size: 1.5rem;
-}
-
-.explanation p {
-  color: #004085;
-  line-height: 1.5;
-}
-
-.next-button {
-  margin-top: 1.5rem;
+.btn-secondary {
   width: 100%;
-  padding: 1rem;
-  background: linear-gradient(135deg, var(--primary) 0%, #45a049 100%);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s;
+  padding: 16px;
+  border-radius: 22px;
+  font-weight: 900;
+  font-size: 20px;
+  color: #7c3aed;
+  background: rgba(255, 255, 255, 0.92);
+  border: 5px solid rgba(167, 139, 250, 0.9);
+  box-shadow: 0 20px 34px rgba(0, 0, 0, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.12s ease;
+}
+.btn-secondary:hover {
+  transform: scale(1.01);
+}
+.pill-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #22d3ee, #3b82f6);
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.16);
 }
 
-.next-button:hover {
-  transform: scale(1.02);
+/* Transiciones */
+.page-enter-active,
+.page-leave-active {
+  transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(18px) scale(0.98);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
 }
 
-/* Results Screen */
-.results-screen {
-  text-align: center;
-  padding: 2rem;
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-enter-from,
+.slide-leave-to {
+  opacity: 0;
+  transform: translateY(16px);
 }
 
-.trophy {
-  font-size: 6rem;
-  margin-bottom: 1rem;
-  animation: trophyBounce 1s ease;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-@keyframes trophyBounce {
-  0%,
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
   100% {
     transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-2deg) scale(1);
   }
   50% {
-    transform: scale(1.2);
+    transform: rotate(2deg) scale(1.04);
   }
 }
-
-.results-screen h2 {
-  color: var(--primary);
-  font-size: 2rem;
-  margin-bottom: 2rem;
+.animate-wiggle {
+  animation: wiggle 1.8s ease-in-out infinite;
 }
 
-.final-score {
-  margin-bottom: 2rem;
+/* Pop score */
+.pop-enter-active {
+  transition: all 0.2s ease;
+}
+.pop-enter-from {
+  transform: scale(0.6);
+  opacity: 0;
 }
 
-.score-circle {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+html {
+  scroll-behavior: smooth;
 }
-
-.score-number {
-  font-size: 3rem;
-  font-weight: bold;
-  color: white;
-}
-
-.score-max {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.performance-message {
-  margin-bottom: 2rem;
-  font-size: 1.3rem;
-}
-
-.performance-message p {
-  animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.excellent {
-  color: #ffd93d;
-}
-.good {
-  color: #4caf50;
-}
-.keep-trying {
-  color: #ff6b6b;
-}
-
-.stats {
-  display: flex;
-  gap: 2rem;
-  justify-content: center;
-  margin-bottom: 2rem;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-}
-
-.stat-value.correct {
-  color: #28a745;
-}
-.stat-value.incorrect {
-  color: #dc3545;
-}
-
-.action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.btn-primary,
-.btn-secondary {
-  padding: 1rem 2rem;
-  border: none;
-  border-radius: 12px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary), #45a049);
-  color: white;
-}
-
-.btn-secondary {
-  background: white;
-  color: var(--text);
-  border: 2px solid var(--primary);
-}
-
-.btn-primary:hover,
-.btn-secondary:hover {
-  transform: scale(1.05);
-}
-
-/* Footer */
-.app-footer {
-  background: var(--card);
-  padding: 1rem;
-  text-align: center;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .logo h1 {
-    font-size: 1.2rem;
-  }
-
-  .categories-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .question-text {
-    font-size: 1.1rem;
-  }
-
-  .stats {
-    gap: 1rem;
-  }
+body {
+  overscroll-behavior-y: contain;
 }
 </style>
