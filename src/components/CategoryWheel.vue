@@ -1,399 +1,641 @@
 <template>
-  <div class="relative w-[320px] h-[320px] mx-auto select-none">
-    <!-- Glow -->
-    <div
-      class="absolute inset-0 rounded-full blur-2xl opacity-50 wheel-glow"
-    ></div>
+  <div class="wheel-root">
+    <div class="wheel-glow"></div>
 
-    <!-- Indicador (aguja) -->
-    <div
-      class="absolute -top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-    >
-      <div class="pointer"></div>
+    <!-- Aguja -->
+    <div class="needle-wrap">
+      <div class="needle"></div>
     </div>
 
-    <!-- Grupo giratorio (rueda + iconos) -->
+    <!-- Rueda SVG (rota) -->
     <div
       ref="wheelRef"
-      class="absolute inset-0 z-10 wheel-hit"
-      :style="wheelVars"
+      class="wheel-rotator"
+      :style="{ transform: `rotate(${rotation}deg)` }"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerUp"
     >
-      <!-- Wheel -->
-      <div
-        class="absolute inset-0 rounded-full shadow-2xl border-[10px] border-white overflow-hidden"
-        :style="{ background: wheelGradient }"
-      >
-        <div class="absolute inset-0 rounded-full wheel-shine"></div>
-        <div class="absolute inset-0 rounded-full wheel-inner"></div>
-      </div>
+      <svg class="wheel-svg" viewBox="0 0 320 320">
+        <circle cx="160" cy="160" r="148" fill="white" />
+        <circle
+          cx="160"
+          cy="160"
+          r="148"
+          fill="none"
+          stroke="#f3f4f6"
+          stroke-width="2"
+        />
+        <path
+          v-for="(seg, i) in segments"
+          :key="i"
+          :d="seg.path"
+          :fill="seg.color"
+          fill-opacity="0.1"
+          :stroke="seg.color"
+          stroke-width="1"
+          stroke-opacity="0.2"
+        />
+        <line
+          v-for="(sep, i) in separators"
+          :key="'s' + i"
+          :x1="sep.x1"
+          :y1="sep.y1"
+          :x2="sep.x2"
+          :y2="sep.y2"
+          stroke="#e5e7eb"
+          stroke-width="1.5"
+        />
+        <circle
+          cx="160"
+          cy="160"
+          r="147"
+          fill="none"
+          stroke="white"
+          stroke-width="3"
+        />
+      </svg>
+    </div>
 
-      <!-- Icons around (se mueven con la rueda pero NO rotan en su eje) -->
+    <!-- Iconos — capa fija, posicionada con JS -->
+    <div class="icons-layer">
       <div
-        v-for="(c, idx) in categories"
-        :key="c.id"
-        class="absolute w-16 h-16 rounded-2xl border-[6px] border-white shadow-xl flex items-center justify-center text-3xl wheel-sticker"
-        :style="iconStyle(c, idx)"
-        aria-hidden="true"
+        v-for="(cat, idx) in categories"
+        :key="cat.id"
+        class="icon-anchor"
+        :style="iconAnchorStyle(idx)"
       >
-        <span class="drop-shadow">{{ c.icon }}</span>
+        <button
+          class="icon-btn"
+          :class="{ 'is-spinning': spinning }"
+          @click="onIconClick(cat)"
+          type="button"
+        >
+          <!-- Fondo de color igual que las tarjetas -->
+          <div class="icon-bg" :style="{ background: cat.colorLight }">
+            <!-- SVG inline directo por id de categoría -->
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <!-- hardware -->
+              <g v-if="cat.id === 'hardware'">
+                <rect
+                  x="2"
+                  y="3"
+                  width="20"
+                  height="14"
+                  rx="2"
+                  :stroke="cat.color"
+                  stroke-width="1.75"
+                />
+                <path
+                  d="M0 20h24"
+                  :stroke="cat.color"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                />
+                <rect
+                  x="8"
+                  y="7"
+                  width="8"
+                  height="6"
+                  rx="1.2"
+                  :fill="cat.color"
+                  fill-opacity="0.15"
+                  :stroke="cat.color"
+                  stroke-width="1.4"
+                />
+                <line
+                  x1="10"
+                  y1="9.5"
+                  x2="14"
+                  y2="9.5"
+                  :stroke="cat.color"
+                  stroke-width="1.3"
+                  stroke-linecap="round"
+                />
+              </g>
+              <!-- software -->
+              <g v-else-if="cat.id === 'software'">
+                <rect
+                  x="2"
+                  y="3"
+                  width="20"
+                  height="18"
+                  rx="3"
+                  :stroke="cat.color"
+                  stroke-width="1.75"
+                />
+                <path d="M2 8h20" :stroke="cat.color" stroke-width="1.75" />
+                <circle cx="5.5" cy="5.5" r="1" :fill="cat.color" />
+                <circle cx="8.5" cy="5.5" r="1" :fill="cat.color" />
+                <polyline
+                  points="7,13 5,15.5 7,18"
+                  :stroke="cat.color"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <polyline
+                  points="17,13 19,15.5 17,18"
+                  :stroke="cat.color"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </g>
+              <!-- internet -->
+              <g v-else-if="cat.id === 'internet'">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  :stroke="cat.color"
+                  stroke-width="1.75"
+                />
+                <ellipse
+                  cx="12"
+                  cy="12"
+                  rx="3.8"
+                  ry="9"
+                  :stroke="cat.color"
+                  stroke-width="1.4"
+                  fill="none"
+                />
+                <path
+                  d="M3.5 8.5h17M3.5 15.5h17"
+                  :stroke="cat.color"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </g>
+              <!-- programming -->
+              <g v-else-if="cat.id === 'programming'">
+                <polyline
+                  points="9,6 4,12 9,18"
+                  :stroke="cat.color"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <polyline
+                  points="15,6 20,12 15,18"
+                  :stroke="cat.color"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <line
+                  x1="14.5"
+                  y1="4"
+                  x2="9.5"
+                  y2="20"
+                  :stroke="cat.color"
+                  stroke-width="1.7"
+                  stroke-linecap="round"
+                />
+              </g>
+              <!-- security -->
+              <g v-else-if="cat.id === 'security'">
+                <path
+                  d="M12 2.5L4 6v5.5c0 5 3.5 9 8 10.5 4.5-1.5 8-5.5 8-10.5V6L12 2.5z"
+                  :stroke="cat.color"
+                  stroke-width="1.75"
+                  stroke-linejoin="round"
+                />
+                <polyline
+                  points="8.5,12 11,14.5 15.5,10"
+                  :stroke="cat.color"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </g>
+            </svg>
+          </div>
+          <span class="icon-name" :style="{ color: cat.color }">{{
+            cat.name
+          }}</span>
+        </button>
       </div>
     </div>
 
-    <!-- Centro (NO rota) -->
-    <div
-      class="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
-    >
-      <div
-        class="w-28 h-28 rounded-[28px] bg-white shadow-2xl border-[6px] border-yellow-300 flex flex-col items-center justify-center"
+    <!-- Centro fijo -->
+    <div class="center-layer">
+      <button
+        class="center-card"
+        :class="{ 'center-spin': spinning }"
+        @click="onCenterClick"
+        type="button"
       >
-        <div class="text-3xl">🎲</div>
-        <div class="text-xs font-black text-gray-700">CATEGORÍAS</div>
-      </div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <polygon
+            points="13,2 3,14 12,14 11,22 21,10 12,10"
+            stroke="#6366f1"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="center-label">{{ spinning ? "···" : "Girar" }}</span>
+      </button>
     </div>
 
-    <!-- Ping cuando termina -->
-    <div v-if="showPing" class="absolute inset-0 z-40 pointer-events-none">
-      <div class="ping-ring"></div>
-    </div>
+    <div v-if="showPing" class="ping-ring"></div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 
-/**
- * Props:
- * categories: [{id, name, icon, color}]
- * autoRotate: giro suave cuando está idle
- * autoSpeed: grados/seg
- * minTurns: vueltas mínimas en tirada
- * maxExtraTurns: vueltas extra según “flick”
- */
 const props = defineProps({
   categories: { type: Array, required: true },
   autoRotate: { type: Boolean, default: true },
-  autoSpeed: { type: Number, default: 10 }, // deg/s
+  autoSpeed: { type: Number, default: 8 },
   minTurns: { type: Number, default: 3 },
-  maxExtraTurns: { type: Number, default: 6 },
+  maxExtraTurns: { type: Number, default: 5 },
 });
+const emit = defineEmits(["select"]);
 
-const emit = defineEmits(["select"]); // emit('select', categoryId)
+const CX = 160,
+  CY = 160,
+  R = 144,
+  ICON_R = 106;
 
 const wheelRef = ref(null);
-const rotation = ref(0); // grados
+const rotation = ref(0);
 const dragging = ref(false);
 const spinning = ref(false);
 const showPing = ref(false);
 
-let pointerId = null;
-let startRotation = 0;
-let startAngle = 0;
+let pointerId = null,
+  startRotation = 0,
+  startAngle = 0;
+let samples = [],
+  spinAnim = null,
+  rafId = null,
+  lastTs = 0;
 
-// samples para velocidad del flick
-let samples = []; // {t, rot}
-
-// RAF loop
-let rafId = null;
-let lastTs = 0;
-
-// animación de spin (controlada por JS para mantener iconos “derechos”)
-let spinAnim = null; // { t0, dur, from, to }
-
-const wheelGradient = computed(() => {
-  const n = props.categories.length || 1;
-  const step = 360 / n;
-  const stops = props.categories.map((c, i) => {
-    const a = i * step;
-    const b = (i + 1) * step;
-    return `${c.color} ${a}deg ${b}deg`;
+const segments = computed(() => {
+  const n = props.categories.length;
+  if (!n) return [];
+  const step = (2 * Math.PI) / n;
+  return props.categories.map((cat, i) => {
+    const a1 = i * step - Math.PI / 2;
+    const a2 = (i + 1) * step - Math.PI / 2;
+    const x1 = CX + R * Math.cos(a1),
+      y1 = CY + R * Math.sin(a1);
+    const x2 = CX + R * Math.cos(a2),
+      y2 = CY + R * Math.sin(a2);
+    return {
+      color: cat.color,
+      path: `M${CX} ${CY}L${x1.toFixed(1)} ${y1.toFixed(1)}A${R} ${R} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}Z`,
+    };
   });
-  return `conic-gradient(${stops.join(",")})`;
 });
 
-// Variables CSS (se actualizan cada frame)
-const wheelVars = computed(() => ({
-  "--rot": `${rotation.value}deg`,
-}));
+const separators = computed(() => {
+  const n = props.categories.length;
+  if (!n) return [];
+  const step = (2 * Math.PI) / n;
+  return Array.from({ length: n }, (_, i) => {
+    const a = i * step - Math.PI / 2;
+    return {
+      x1: CX,
+      y1: CY,
+      x2: (CX + R * Math.cos(a)).toFixed(1),
+      y2: (CY + R * Math.sin(a)).toFixed(1),
+    };
+  });
+});
 
-function norm360(deg) {
-  return ((deg % 360) + 360) % 360;
-}
-
-function signedDelta(a, b) {
-  return ((a - b + 540) % 360) - 180;
-}
-
-function getCenter() {
-  const el = wheelRef.value;
-  const r = el.getBoundingClientRect();
-  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
-}
-
-// 0° arriba, sentido horario
-function angleFromPoint(x, y) {
-  const { cx, cy } = getCenter();
-  const atan = Math.atan2(y - cy, x - cx) * (180 / Math.PI); // 0° derecha, CCW
-  return norm360(450 - atan); // 0° arriba, CW
-}
-
-function getVelocityDegPerSec() {
-  if (samples.length < 2) return 0;
-  const a = samples[samples.length - 1];
-  const b = samples[Math.max(0, samples.length - 4)];
-  const dt = a.t - b.t;
-  if (dt <= 0) return 0;
-  return ((a.rot - b.rot) / dt) * 1000; // deg/s
-}
-
-function currentIndexFromRotation(rot) {
-  const n = props.categories.length || 1;
-  const step = 360 / n;
-
-  // aguja arriba => ángulo en coordenadas de rueda = -rot
-  const wheelAngleAtPointer = norm360(-rot);
-  return Math.floor(wheelAngleAtPointer / step);
-}
-
-/**
- * Iconos “derechos”:
- * - Se colocan radialmente con rotate(angle) translate(radius)
- * - Luego se aplica rotate(-wheelRotation) para que NO roten en su eje
- *   (usan var(--rot) del contenedor)
- */
-function iconStyle(c, idx) {
-  const n = props.categories.length || 1;
-  const angle = (360 / n) * idx - 90; // arranca arriba
-  const radius = 138;
-
+function iconAnchorStyle(idx) {
+  const n = props.categories.length;
+  if (!n) return {};
+  const segDeg = (360 / n) * idx - 90;
+  const screenRad = ((segDeg + rotation.value) * Math.PI) / 180;
+  const px = CX + ICON_R * Math.cos(screenRad);
+  const py = CY + ICON_R * Math.sin(screenRad);
   return {
-    top: "50%",
-    left: "50%",
-    // 👇 clave: compensar la rueda (-rot) Y el ángulo orbital (-angle)
-    transform: `translate(-50%, -50%) rotate(${angle}deg) translate(${radius}px) rotate(calc(-1 * var(--rot))) rotate(${-angle}deg)`,
-    background: `linear-gradient(135deg, ${c.color} 0%, ${c.color}cc 100%)`,
-    pointerEvents: "none",
+    left: ((px / 320) * 100).toFixed(2) + "%",
+    top: ((py / 320) * 100).toFixed(2) + "%",
   };
 }
 
-function easeOutQuint(t) {
-  return 1 - Math.pow(1 - t, 5);
+const norm360 = (d) => ((d % 360) + 360) % 360;
+const signedDelta = (a, b) => ((a - b + 540) % 360) - 180;
+
+function getCenter() {
+  const r = wheelRef.value.getBoundingClientRect();
+  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
 }
+function angleFromPoint(x, y) {
+  const { cx, cy } = getCenter();
+  return norm360(450 - Math.atan2(y - cy, x - cx) * (180 / Math.PI));
+}
+function getVelocity() {
+  if (samples.length < 2) return 0;
+  const a = samples[samples.length - 1],
+    b = samples[Math.max(0, samples.length - 4)];
+  const dt = a.t - b.t;
+  return dt <= 0 ? 0 : ((a.rot - b.rot) / dt) * 1000;
+}
+function currentCatIndex() {
+  return Math.floor(norm360(-rotation.value) / (360 / props.categories.length));
+}
+const easeOut = (t) => 1 - Math.pow(1 - t, 5);
 
-function spinToRandom(gestureVelDegS = 0) {
+function spinToRandom(velDegS = 0) {
   if (!props.categories.length) return;
-
   spinning.value = true;
-
   const n = props.categories.length;
   const step = 360 / n;
-
-  // ganador random
   const winner = Math.floor(Math.random() * n);
-
-  // centro del segmento con un pequeño jitter
-  const jitter = (Math.random() - 0.5) * step * 0.35;
-  const pointerAngleInWheel = winner * step + step / 2 + jitter;
-
-  // Queremos: -finalRot ≡ pointerAngleInWheel (mod 360)
-  const targetMod = norm360(-pointerAngleInWheel);
-  const currentMod = norm360(rotation.value);
-  const delta = norm360(targetMod - currentMod);
-
-  // vueltas según flick
-  const absV = Math.min(Math.abs(gestureVelDegS), 2800);
-  const extraTurns = Math.min(props.maxExtraTurns, Math.floor(absV / 450));
-  const turns = props.minTurns + extraTurns;
-
-  // duración según vueltas/velocidad
-  const base = 2.4 + turns * 0.35;
-  const speedBonus = Math.min(1.2, absV / 2500);
-  const dur = Math.min(6.5, Math.max(2.4, base + speedBonus));
-
-  const from = rotation.value;
-  const to = from + turns * 360 + delta;
-
+  const jitter = (Math.random() - 0.5) * step * 0.4;
+  const targetAngle = winner * step + step / 2 + jitter;
+  const delta = norm360(norm360(-targetAngle) - norm360(rotation.value));
+  const absV = Math.min(Math.abs(velDegS), 2500);
+  const turns =
+    props.minTurns + Math.min(props.maxExtraTurns, Math.floor(absV / 400));
+  const dur = Math.min(6, Math.max(2.2, 2.2 + turns * 0.35));
   spinAnim = {
     t0: performance.now(),
     dur: dur * 1000,
-    from,
-    to,
+    from: rotation.value,
+    to: rotation.value + turns * 360 + delta,
   };
 }
-
 function finishSpin() {
   spinning.value = false;
   spinAnim = null;
-
-  // normaliza (sin salto visual grande)
   rotation.value = norm360(rotation.value);
-
-  const idx = currentIndexFromRotation(rotation.value);
-  const cat = props.categories[idx];
-
+  const cat = props.categories[currentCatIndex()];
   showPing.value = true;
-  setTimeout(() => (showPing.value = false), 420);
-
+  setTimeout(() => {
+    showPing.value = false;
+  }, 450);
   emit("select", cat?.id);
 }
 
-/* Pointer events */
 function onPointerDown(e) {
   if (spinning.value) return;
-
   dragging.value = true;
   pointerId = e.pointerId;
   wheelRef.value?.setPointerCapture(pointerId);
-
   startRotation = rotation.value;
   startAngle = angleFromPoint(e.clientX, e.clientY);
-
   samples = [{ t: performance.now(), rot: rotation.value }];
-
   e.preventDefault?.();
 }
-
 function onPointerMove(e) {
   if (!dragging.value || e.pointerId !== pointerId || spinning.value) return;
-
-  const a = angleFromPoint(e.clientX, e.clientY);
-  const d = signedDelta(a, startAngle);
-
-  rotation.value = startRotation + d;
-
-  const t = performance.now();
-  samples.push({ t, rot: rotation.value });
+  rotation.value =
+    startRotation +
+    signedDelta(angleFromPoint(e.clientX, e.clientY), startAngle);
+  samples.push({ t: performance.now(), rot: rotation.value });
   if (samples.length > 10) samples.shift();
-
   e.preventDefault?.();
 }
-
 function onPointerUp(e) {
   if (!dragging.value || e.pointerId !== pointerId) return;
-
   dragging.value = false;
-
   try {
     wheelRef.value?.releasePointerCapture(pointerId);
   } catch (_) {}
-
   pointerId = null;
-
-  const v = getVelocityDegPerSec();
-  spinToRandom(v);
+  spinToRandom(getVelocity());
+}
+function onIconClick(cat) {
+  if (spinning.value || dragging.value) return;
+  emit("select", cat.id);
+}
+function onCenterClick() {
+  if (!spinning.value) spinToRandom(600);
 }
 
-/* RAF loop */
 function loop(ts) {
   if (!lastTs) lastTs = ts;
   const dt = (ts - lastTs) / 1000;
   lastTs = ts;
-
-  // Spin anim
   if (spinAnim && !dragging.value) {
     const t = Math.min(1, (ts - spinAnim.t0) / spinAnim.dur);
-    const eased = easeOutQuint(t);
-    rotation.value = spinAnim.from + (spinAnim.to - spinAnim.from) * eased;
-
+    rotation.value = spinAnim.from + (spinAnim.to - spinAnim.from) * easeOut(t);
     if (t >= 1) finishSpin();
   } else if (props.autoRotate && !dragging.value && !spinning.value) {
-    // Auto rotate idle
     rotation.value += props.autoSpeed * dt;
   }
-
   rafId = requestAnimationFrame(loop);
 }
-
 onMounted(() => {
   rafId = requestAnimationFrame(loop);
 });
-
 onUnmounted(() => {
   if (rafId) cancelAnimationFrame(rafId);
 });
 </script>
 
 <style scoped>
-/* Importante para drag en móvil */
-.wheel-hit {
-  touch-action: none;
-  will-change: transform;
-  transform: rotate(var(--rot));
-}
-
-/* Glow */
-.wheel-glow {
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(255, 255, 255, 0.35),
-    transparent 60%
-  );
-}
-
-/* Shine */
-.wheel-shine {
-  background:
-    radial-gradient(
-      circle at 30% 25%,
-      rgba(255, 255, 255, 0.45),
-      transparent 45%
-    ),
-    radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.12), transparent 55%);
-  mix-blend-mode: soft-light;
-}
-
-/* Profundidad interna */
-.wheel-inner {
-  box-shadow:
-    inset 0 22px 34px rgba(0, 0, 0, 0.15),
-    inset 0 -18px 28px rgba(255, 255, 255, 0.18);
-  opacity: 0.9;
-}
-
-/* Stickers */
-.wheel-sticker {
-  box-shadow:
-    0 18px 35px rgba(0, 0, 0, 0.18),
-    inset 0 10px 18px rgba(255, 255, 255, 0.25);
-}
-
-/* Pointer */
-.pointer {
-  width: 0;
-  height: 0;
-  border-left: 14px solid transparent;
-  border-right: 14px solid transparent;
-  border-top: 22px solid rgba(255, 255, 255, 0.95);
-  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.25));
+.wheel-root {
   position: relative;
+  width: 320px;
+  height: 320px;
+  margin: 0 auto;
+  touch-action: none;
+  user-select: none;
 }
-.pointer::after {
-  content: "";
+
+.wheel-glow {
   position: absolute;
-  left: -10px;
-  top: -20px;
+  inset: -20px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(99, 102, 241, 0.07) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* Aguja */
+.needle-wrap {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: none;
+}
+.needle {
   width: 0;
   height: 0;
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-top: 16px solid rgba(251, 191, 36, 0.95);
+  border-top: 18px solid #6366f1;
+  filter: drop-shadow(0 3px 6px rgba(99, 102, 241, 0.35));
+  position: relative;
+}
+.needle::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 999px;
+  border: 2px solid #6366f1;
+  top: -22px;
+  left: -4px;
 }
 
-/* Ping ring */
-.ping-ring {
+/* Rueda */
+.wheel-rotator {
   position: absolute;
   inset: 0;
-  border-radius: 9999px;
-  border: 6px solid rgba(255, 255, 255, 0.35);
-  animation: ping 0.42s ease-out;
+  will-change: transform;
+  cursor: grab;
 }
-@keyframes ping {
+.wheel-rotator:active {
+  cursor: grabbing;
+}
+.wheel-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Capa de iconos — NO rota */
+.icons-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.icon-anchor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+/* Botón — misma estructura que las tarjetas de categoría */
+.icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 62px;
+  padding: 8px 4px 6px;
+  background: white;
+  border: 1.5px solid rgba(0, 0, 0, 0.07);
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease;
+}
+.icon-btn:not(.is-spinning):hover {
+  transform: scale(1.13);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.15);
+}
+.icon-btn:not(.is-spinning):active {
+  transform: scale(0.94);
+}
+.icon-btn.is-spinning {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Fondo del icono — idéntico al de las tarjetas */
+.icon-bg {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-name {
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Centro */
+.center-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  pointer-events: none;
+}
+.center-card {
+  width: 70px;
+  height: 70px;
+  border-radius: 20px;
+  background: white;
+  border: 2px solid rgba(99, 102, 241, 0.18);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.center-card:hover {
+  transform: scale(1.07);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.28);
+}
+.center-spin {
+  animation: cPulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes cPulse {
+  from {
+    transform: scale(0.97);
+  }
+  to {
+    transform: scale(1.03);
+    box-shadow: 0 12px 28px rgba(99, 102, 241, 0.32);
+  }
+}
+.center-label {
+  font-size: 10px;
+  font-weight: 900;
+  color: #6366f1;
+}
+
+/* Ping */
+.ping-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 3px solid rgba(99, 102, 241, 0.35);
+  animation: pingOut 0.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 5;
+}
+@keyframes pingOut {
   0% {
-    transform: scale(0.92);
-    opacity: 0.85;
+    transform: scale(0.9);
+    opacity: 0.9;
   }
   100% {
     transform: scale(1.06);
@@ -401,10 +643,9 @@ onUnmounted(() => {
   }
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .wheel-hit {
-    transform: rotate(0deg);
+  .wheel-rotator {
+    transform: rotate(0deg) !important;
   }
 }
 </style>
